@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ncurses.h>
 
 #define MAX 100
 #define MAXHEIGHT 30
@@ -46,7 +47,7 @@ void die(char *message, struct Connection *conn)
 void File_open(char *filename, struct Connection *conn)
 {
     if (!(conn->file = fopen(filename, "r"))) {
-	die("Can't open file\n", conn);
+	die("Can't open file.\n", conn);
     }
 }
 
@@ -79,31 +80,6 @@ void File_read(struct Connection *conn)
 }
 
 
-void print_at_coor(int y, int scl, struct Connection *conn)
-{
-    int x = 0;
-
-    if (y <= 0) {
-	return;
-    }
-
-    else {
-        printf("%4d|", y);
-
-        for (x = 1; x <= conn->hist->cols; ++x) {
-	    if (conn->hist->wlen[x] >= y) {
-	        printf(" | ");
-	    } else {
-	        printf("   ");
-	    }
-        }
-        putchar('\n');
-
-        print_at_coor(y - scl, scl, conn);
-    }
-}
-
-
 int scale(struct Connection *conn, int maxheight)
 {
     int lower = conn->hist->rows / maxheight;
@@ -117,29 +93,100 @@ int scale(struct Connection *conn, int maxheight)
         return scale;
     }
 }
+
+
+void mvset(int cursor[], int y, int x)
+{
+    cursor[0] = cursor[0] + y; 
+    cursor[1] = cursor[1] + x;
     
+    move(cursor[0], cursor[1]);
+}
+
+
+void print_at_coor(int y, int scl, struct Connection *conn, int cursor[])
+{
+    int x = 0;
+
+    if (y <= 0) {
+	return;
+    }
+
+    else {
+	mvset(cursor, 1, 0);
+        printw("%4d", y);
+	addch(ACS_VLINE);
+
+	mvset(cursor, 0, 6);
+        for (x = 1; x <= conn->hist->cols; ++x) {
+	    if (conn->hist->wlen[x] >= y) {
+	        addch(ACS_LANTERN);
+	    } else {}
+	    mvset(cursor, 0, 3);
+        }
+	cursor[1] = 0;
+
+        print_at_coor(y - scl, scl, conn, cursor);
+    }
+}
+
 	
-void Histogram_print(struct Connection *conn, int maxheight)
+void Histogram_print(struct Connection *conn, int maxheight, int cursor[])
 {
     int y = conn->hist->rows;
     int scl = scale(conn, MAXHEIGHT);   
 
+
     // Print the y-axis and all points on the histogram
-    printf("   Y\n");
-    print_at_coor(y, scl, conn);
+    move(cursor[0], cursor[1]);
+    printw("   Y");
+    print_at_coor(y, scl, conn, cursor);
 
     // Print the x-axis
-    printf("     ");
+    mvset(cursor, 1, 0);
+
+    printw("      ");
+
+    mvset(cursor, 0, 2);
+
     for (y = 0; y < conn->hist->cols; ++y) {
-	printf("---");
+        mvset(cursor, 0, 3);
+
+	addch(ACS_HLINE);
+	addch(ACS_HLINE);
+	addch(ACS_HLINE);
     }
 
-    printf(" X");
-    printf("\n    ");
+    printw(" X");
+
+    mvset(cursor, 1, 0);
+    cursor[1] = 1;
+
     for (y = 1; y <= conn->hist->cols; ++y) {
-	printf("%3d", y);
+        mvset(cursor, 0, 3);
+	printw("%3d", y);
     }
-    putchar('\n');
+
+    mvset(cursor, -2, -(cursor[1] - 6));
+}
+
+
+void curs_seek(int cursor[], int dir)
+{
+    switch(dir)
+    {	
+	case KEY_UP:	mvset(cursor, -1, 0);
+			break;
+
+	case KEY_DOWN:	mvset(cursor, 1, 0);
+			break;
+
+	case KEY_LEFT: 	mvset(cursor, 0, -1);
+			break;
+
+	case KEY_RIGHT:	mvset(cursor, 0, 1);
+			break;
+    }
 }
 
 
@@ -164,7 +211,21 @@ main(int argc, char *argv[])
      
     File_read(conn);
 
-    Histogram_print(conn, MAXHEIGHT);
+    initscr();
+    keypad(stdscr, TRUE);
+    raw();
+    noecho();
+
+    int cursor[2] = {0, 0};
+
+    Histogram_print(conn, MAXHEIGHT, cursor);
+    int dir;
+    while ((dir = getch()) != KEY_F(1)) {
+        curs_seek(cursor, dir);
+    }
+
+    getch();
+    endwin();
 
     if(conn) {
         if(conn->file) fclose(conn->file);

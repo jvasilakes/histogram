@@ -21,12 +21,19 @@ struct Histogram {
     int rows;
     int cols;
     int wlen[MAX];
+    int scale;
 };
 
 
 struct Connection {
     FILE *file;
     struct Histogram *hist;
+};
+
+
+struct Cursor {
+    int y;
+    int x;
 };
 
 
@@ -95,62 +102,63 @@ int scale(struct Connection *conn, int maxheight)
 }
 
 
-void mvset(int cursor[], int y, int x)
+void mvset(struct Cursor *curs, int y, int x)
 {
-    cursor[0] = cursor[0] + y; 
-    cursor[1] = cursor[1] + x;
+    curs->y = curs->y + y; 
+    curs->x = curs->x + x;
     
-    move(cursor[0], cursor[1]);
+    move(curs->y, curs->x);
 }
 
 
-void print_at_coor(int y, int scl, struct Connection *conn, int cursor[])
+void print_at_coor(int y, struct Connection *conn, struct Cursor *curs)
 {
     int x = 0;
+    int scl = conn->hist->scale;
 
     if (y <= 0) {
 	return;
     }
 
     else {
-	mvset(cursor, 1, 0);
+	mvset(curs, 1, 0);
         printw("%4d", y);
 	addch(ACS_VLINE);
 
-	mvset(cursor, 0, 6);
+	mvset(curs, 0, 6);
         for (x = 1; x <= conn->hist->cols; ++x) {
 	    if (conn->hist->wlen[x] >= y) {
 	        addch(ACS_LANTERN);
 	    } else {}
-	    mvset(cursor, 0, 3);
+	    mvset(curs, 0, 3);
         }
-	cursor[1] = 0;
+	curs->x = 0;
 
-        print_at_coor(y - scl, scl, conn, cursor);
+        print_at_coor(y - scl, conn, curs);
     }
 }
 
 	
-void Histogram_print(struct Connection *conn, int maxheight, int cursor[])
+void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs)
 {
     int y = conn->hist->rows;
-    int scl = scale(conn, MAXHEIGHT);   
+    conn->hist->scale = scale(conn, MAXHEIGHT);   
 
 
     // Print the y-axis and all points on the histogram
-    move(cursor[0], cursor[1]);
+    move(curs->y, curs->x);
     printw("   Y");
-    print_at_coor(y, scl, conn, cursor);
+    print_at_coor(y, conn, curs);
 
     // Print the x-axis
-    mvset(cursor, 1, 0);
+    mvset(curs, 1, 0);
 
     printw("      ");
 
-    mvset(cursor, 0, 2);
+    mvset(curs, 0, 2);
 
     for (y = 0; y < conn->hist->cols; ++y) {
-        mvset(cursor, 0, 3);
+        mvset(curs, 0, 3);
 
 	addch(ACS_HLINE);
 	addch(ACS_HLINE);
@@ -159,34 +167,35 @@ void Histogram_print(struct Connection *conn, int maxheight, int cursor[])
 
     printw(" X");
 
-    mvset(cursor, 1, 0);
-    cursor[1] = 1;
+    mvset(curs, 1, 0);
+    curs->x = 1;
 
     for (y = 1; y <= conn->hist->cols; ++y) {
-        mvset(cursor, 0, 3);
+        mvset(curs, 0, 3);
 	printw("%3d", y);
     }
 
-    mvset(cursor, -2, -(cursor[1] - 6));
+    mvset(curs, -2, -(curs->x - 6));
 }
 
 
-void curs_seek(int cursor[], int dir)
+void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 {
+
     switch(dir)
     {	
-	case KEY_UP:	mvset(cursor, -1, 0);
+        case KEY_UP:	mvset(curs, -1, 0);
+		    	break;
+
+        case KEY_DOWN:	mvset(curs, 1, 0);
+		 	break;
+
+        case KEY_LEFT: 	mvset(curs, 0, -1);
 			break;
 
-	case KEY_DOWN:	mvset(cursor, 1, 0);
+        case KEY_RIGHT:	mvset(curs, 0, 1);
 			break;
-
-	case KEY_LEFT: 	mvset(cursor, 0, -1);
-			break;
-
-	case KEY_RIGHT:	mvset(cursor, 0, 1);
-			break;
-    }
+    } 
 }
 
 
@@ -216,12 +225,14 @@ main(int argc, char *argv[])
     raw();
     noecho();
 
-    int cursor[2] = {0, 0};
+    struct Cursor *curs = malloc(sizeof(struct Cursor));
+    curs->y = 0;
+    curs->x = 0;
 
-    Histogram_print(conn, MAXHEIGHT, cursor);
+    Histogram_print(conn, MAXHEIGHT, curs);
     int dir;
     while ((dir = getch()) != KEY_F(1)) {
-        curs_seek(cursor, dir);
+        curs_seek(curs, conn, dir);
     }
 
     getch();

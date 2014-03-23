@@ -7,4 +7,3 @@ curses:
 
 clean:
 	if [ -f hist ]; then rm hist; fi
-	if [ -f hc ]; then rm hc; fi

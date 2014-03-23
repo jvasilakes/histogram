@@ -6,5 +6,5 @@ curses:
 
 
 clean:
-	rm hist
-	rm hc
+	if [ -f hist ]; then rm hist; fi
+	if [ -f hc ]; then rm hc; fi

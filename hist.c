@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ncurses.h>
 
 #define MAX 100
 #define MAXHEIGHT 30
@@ -20,12 +21,19 @@ struct Histogram {
     int rows;
     int cols;
     int wlen[MAX];
+    int scale;
 };
 
 
 struct Connection {
     FILE *file;
     struct Histogram *hist;
+};
+
+
+struct Cursor {
+    int y;
+    int x;
 };
 
 
@@ -46,7 +54,7 @@ void die(char *message, struct Connection *conn)
 void File_open(char *filename, struct Connection *conn)
 {
     if (!(conn->file = fopen(filename, "r"))) {
-	die("Can't open file\n", conn);
+	die("Can't open file.\n", conn);
     }
 }
 
@@ -79,33 +87,9 @@ void File_read(struct Connection *conn)
 }
 
 
-void print_at_coor(int y, int scl, struct Connection *conn)
-{
-    int x = 0;
-
-    if (y <= 0) {
-	return;
-    }
-
-    else {
-        printf("%4d|", y);
-
-        for (x = 1; x <= conn->hist->cols; ++x) {
-	    if (conn->hist->wlen[x] >= y) {
-	        printf(" | ");
-	    } else {
-	        printf("   ");
-	    }
-        }
-        putchar('\n');
-
-        print_at_coor(y - scl, scl, conn);
-    }
-}
-
-
 int scale(struct Connection *conn, int maxheight)
 {
+    maxheight = (maxheight * 2) / 3;
     int lower = conn->hist->rows / maxheight;
     int upper = (conn->hist->rows * 2) / maxheight;
 
@@ -117,29 +101,117 @@ int scale(struct Connection *conn, int maxheight)
         return scale;
     }
 }
+
+
+void mvset(struct Cursor *curs, int y, int x)
+{
+    curs->y = curs->y + y; 
+    curs->x = curs->x + x;
     
+    move(curs->y, curs->x);
+}
+
+
+int digits(int num)
+{
+    int i = 0;
+    
+    while (num != 0) {
+	num = num / 10;
+	i++;
+    }
+
+    return i;
+}  
+
+
+void print_at_coor(int y, int start, struct Connection *conn, struct Cursor *curs)
+{
+    int x = 0;
+    int scl = conn->hist->scale;
+
+    if (y <= 0) {
+	return;
+    }
+
+    else {
+	int nstart = digits(y);
+
+	mvset(curs, 1, (start - nstart));
+        printw("%d", y);
+	addch(ACS_VLINE);
+
+	mvset(curs, 0, nstart + 2);
+        for (x = 1; x <= conn->hist->cols; ++x) {
+	    if (conn->hist->wlen[x] >= y) {
+	        addch(ACS_DIAMOND);
+	    } else {}
+	    mvset(curs, 0, 3);
+        }
+	curs->x = 0;
+
+        print_at_coor(y - scl, start, conn, curs);
+    }
+}
+
 	
-void Histogram_print(struct Connection *conn, int maxheight)
+void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs)
 {
     int y = conn->hist->rows;
-    int scl = scale(conn, MAXHEIGHT);   
+    conn->hist->scale = scale(conn, MAXHEIGHT);   
+    int space = digits(y);
+
 
     // Print the y-axis and all points on the histogram
-    printf("   Y\n");
-    print_at_coor(y, scl, conn);
+    move(0, space);
+    printw("Y");
+    print_at_coor(y, space, conn, curs);
 
     // Print the x-axis
-    printf("     ");
+    mvset(curs, 1, 0);
+
+    mvset(curs, 0, space + 1);
     for (y = 0; y < conn->hist->cols; ++y) {
-	printf("---");
+
+	addch(ACS_HLINE);
+	addch(ACS_HLINE);
+	addch(ACS_HLINE);
+
+        mvset(curs, 0, 3);
     }
 
-    printf(" X");
-    printf("\n    ");
+    printw(" X");
+
+    //mvset(curs, 1, 0);
+    curs->x = 0;
+
+    mvset(curs, 1, space + 2);
     for (y = 1; y <= conn->hist->cols; ++y) {
-	printf("%3d", y);
+	printw("%d", y);
+        mvset(curs, 0, 3);
     }
-    putchar('\n');
+
+    mvset(curs, -2, -(curs->x - 6));
+}
+
+
+void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
+{
+
+    switch(dir)
+    {	
+        case KEY_UP:	mvset(curs, -1, 0);
+		    	break;
+
+        case KEY_DOWN:	mvset(curs, 1, 0);
+		 	break;
+
+        case KEY_LEFT: 	mvset(curs, 0, -1);
+			break;
+
+        case KEY_RIGHT:	mvset(curs, 0, 1);
+			break;
+    } 
 }
 
 
@@ -164,7 +236,22 @@ main(int argc, char *argv[])
      
     File_read(conn);
 
-    Histogram_print(conn, MAXHEIGHT);
+    initscr();
+    keypad(stdscr, TRUE);
+    raw();
+    noecho();
+
+    struct Cursor *curs = malloc(sizeof(struct Cursor));
+    curs->y = 0;
+    curs->x = 0;
+
+    Histogram_print(conn, MAXHEIGHT, curs);
+
+    int dir;
+    while ((dir = getch()) != KEY_F(1)) {
+        curs_seek(curs, conn, dir);
+    }
+    endwin();
 
     if(conn) {
         if(conn->file) fclose(conn->file);

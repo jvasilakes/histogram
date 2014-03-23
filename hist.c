@@ -1,8 +1,8 @@
 /******************************************
-*       A better version of hist,         *
-**      which reads an input file        **
-***     and creates a histogram         ***
-**	of word lengths in that file.    ** 
+*                  HIST                   *
+**          Reads an input file          **
+***       and creates a histogram       ***
+**      of word lengths in that file.    ** 
 *					  *
 *******************************************/
 
@@ -197,21 +197,34 @@ void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs
 
 void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 {
-
     switch(dir)
     {	
-        case KEY_UP:	mvset(curs, -1, 0);
-		    	break;
+        case KEY_UP:    if (curs->y == 0) break;
+			else {
+			    mvset(curs, -1, 0);
+	    		    break;
+			}
 
-        case KEY_DOWN:	mvset(curs, 1, 0);
-		 	break;
+        case KEY_DOWN:  if (curs->y == ((conn->hist->rows / conn->hist->scale)  + 2)) {
+			    break;	
+			}
+			else {
+			    mvset(curs, 1, 0);
+	 		    break;
+			}
 
-        case KEY_LEFT: 	mvset(curs, 0, -1);
-			break;
+        case KEY_LEFT:  if (curs->x == 0) break;	
+			else {
+			    mvset(curs, 0, -1);
+			    break;
+			}
 
-        case KEY_RIGHT:	mvset(curs, 0, 1);
-			break;
-    } 
+        case KEY_RIGHT: if (curs->x == (conn->hist->cols * 3)) break;	
+			else {
+			    mvset(curs, 0, 1);
+			    break;
+			}
+    }
 }
 
 

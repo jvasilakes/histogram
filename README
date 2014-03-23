@@ -1,2 +1,5 @@
-Geneartes a histogram on the command line of word length frequencies
+Geneartes a histogram of word length frequencies
 in a plain text file provided as an argument.
+
+INSTALLATION:
+Just type 'make'!

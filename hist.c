@@ -22,6 +22,7 @@ struct Histogram {
     int cols;
     int wlen[MAX];
     int scale;
+    int lspace;
 };
 
 
@@ -65,13 +66,9 @@ void File_read(struct Connection *conn)
     int wc = 0;
 
     while ((c = getc(conn->file)) != EOF) {
-	if (c != ' ' && c != '\t' && c != '\n' && c != '\r'
-	    && c != '.' && c != ',' && c != '?' && c != '!'
-	    && c != ';' && c != '\'' && c != ':') {
+	if (isalpha(c)) ++wc;
 
-	    ++wc;
-
-	} else {
+	else if (wc != 0) {
 	    ++conn->hist->wlen[wc];
 
 	    if (wc > conn->hist->cols) {
@@ -159,18 +156,20 @@ void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs
 {
     int y = conn->hist->rows;
     conn->hist->scale = scale(conn, MAXHEIGHT);   
-    int space = digits(y);
+    int space = conn->hist->lspace = digits(y);
 
 
     // Print the y-axis and all points on the histogram
-    move(0, space);
+    move(2, space);
     printw("Y");
+    mvset(curs, 2, 0);
     print_at_coor(y, space, conn, curs);
 
     // Print the x-axis
-    mvset(curs, 1, 0);
+    mvset(curs, 1, space);
+    addch('+');
 
-    mvset(curs, 0, space + 1);
+    mvset(curs, 0, 1);
     for (y = 0; y < conn->hist->cols; ++y) {
 
 	addch(ACS_HLINE);
@@ -199,13 +198,13 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 {
     switch(dir)
     {	
-        case KEY_UP:    if (curs->y == 0) break;
+        case KEY_UP:    if (curs->y == 3) break;
 			else {
 			    mvset(curs, -1, 0);
 	    		    break;
 			}
 
-        case KEY_DOWN:  if (curs->y == ((conn->hist->rows / conn->hist->scale)  + 2)) {
+        case KEY_DOWN:  if (curs->y == ((conn->hist->rows / conn->hist->scale)  + 5)) {
 			    break;	
 			}
 			else {
@@ -213,13 +212,15 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 	 		    break;
 			}
 
-        case KEY_LEFT:  if (curs->x == 0) break;	
+        case KEY_LEFT:  if (curs->x == (conn->hist->lspace - 1)) break;	
 			else {
 			    mvset(curs, 0, -1);
 			    break;
 			}
 
-        case KEY_RIGHT: if (curs->x == (conn->hist->cols * 3)) break;	
+        case KEY_RIGHT: if (curs->x == conn->hist->lspace +(conn->hist->cols * 3)) {
+		 	    break;	
+			}
 			else {
 			    mvset(curs, 0, 1);
 			    break;
@@ -257,6 +258,8 @@ main(int argc, char *argv[])
     struct Cursor *curs = malloc(sizeof(struct Cursor));
     curs->y = 0;
     curs->x = 0;
+
+    mvprintw(0, 0, "%s", argv[1]);
 
     Histogram_print(conn, MAXHEIGHT, curs);
 

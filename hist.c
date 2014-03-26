@@ -1,4 +1,4 @@
-/******************************************
+4******************************************
 *                  HIST                   *
 **          Reads an input file          **
 ***       and creates a histogram       ***
@@ -204,7 +204,7 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 	    		    break;
 			}
 
-        case KEY_DOWN:  if (curs->y == ((conn->hist->rows / conn->hist->scale)  + 5)) {
+        case KEY_DOWN:  if (curs->y == ((conn->hist->rows / conn->hist->scale)  + 4)) {
 			    break;	
 			}
 			else {
@@ -226,6 +226,10 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 			    break;
 			}
     }
+
+    mvprintw(30, 5, "[%d, %d]", curs->y, curs->x);
+    move(curs->y, curs->x);
+    refresh();
 }
 
 

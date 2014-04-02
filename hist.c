@@ -268,7 +268,7 @@ main(int argc, char *argv[])
     Histogram_print(conn, MAXHEIGHT, curs);
 
     int dir;
-    while ((dir = getch()) != KEY_F(1)) {
+    while ((dir = getch()) != ord('q')) {
         curs_seek(curs, conn, dir);
     }
     endwin();

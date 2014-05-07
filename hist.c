@@ -295,11 +295,8 @@ main(int argc, char *argv[])
 
     // Allow user to move cursor around the graph.
     int dir;
-<<<<<<< HEAD
+
     while ((dir = getch()) != 'q') {
-=======
-    while ((dir = getch()) != ord('q')) {
->>>>>>> 3caa9d69026e88b8cfa55b0b46bdeb7d9ede4349
         curs_seek(curs, conn, dir);
     }
 

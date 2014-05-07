@@ -1,5 +1,5 @@
 all:
-	gcc hist.c -o hist -lncurses
+	gcc hist.c -o hist -lm -lncurses
 
 
 clean:

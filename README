@@ -1,5 +1,5 @@
-Geneartes a histogram of word length frequencies
-in a plain text file provided as an argument.
+Generates a histogram of word length frequencies
+from a plain text file provided as an argument.
 
 INSTALLATION:
 Just type 'make'!

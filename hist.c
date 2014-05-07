@@ -1,4 +1,4 @@
-4******************************************
+/******************************************
 *                  HIST                   *
 **          Reads an input file          **
 ***       and creates a histogram       ***
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ncurses.h>
+#include <math.h>
 
 #define MAX 100
 #define MAXHEIGHT 30
@@ -66,49 +67,29 @@ void File_read(struct Connection *conn)
     int wc = 0;
 
     while ((c = getc(conn->file)) != EOF) {
+
+	// Only count letters, no numbers, punctuation, etc.
 	if (isalpha(c)) ++wc;
 
-	else if (wc != 0) {
-	    ++conn->hist->wlen[wc];
+	else { 
+	    if (wc > 0) {
+	        ++conn->hist->wlen[wc];
 
-	    if (wc > conn->hist->cols) {
-		conn->hist->cols = wc;
-	    }
-	    if (conn->hist->wlen[wc] > conn->hist->rows) {
-		conn->hist->rows = conn->hist->wlen[wc];
-	    }
+	        if (wc > conn->hist->cols) {
+		    conn->hist->cols = wc;
+	        }
+	        if (conn->hist->wlen[wc] > conn->hist->rows) {
+		    conn->hist->rows = conn->hist->wlen[wc];
+	        }
 
-	    wc = 0;
-	}
+	        wc = 0;
+	    }
+        }
     }
 }
 
 
-int scale(struct Connection *conn, int maxheight)
-{
-    maxheight = (maxheight * 2) / 3;
-    int lower = conn->hist->rows / maxheight;
-    int upper = (conn->hist->rows * 2) / maxheight;
-
-    int scale = upper - lower;
-
-    if (scale == 0) {
-	return 1;
-    } else {
-        return scale;
-    }
-}
-
-
-void mvset(struct Cursor *curs, int y, int x)
-{
-    curs->y = curs->y + y; 
-    curs->x = curs->x + x;
-    
-    move(curs->y, curs->x);
-}
-
-
+// Return number of digits in a number (e.g. digits(1223) = 4)
 int digits(int num)
 {
     int i = 0;
@@ -122,6 +103,43 @@ int digits(int num)
 }  
 
 
+/* Find by what number the y axis 
+ (number of occurrances of words 
+ of a certain length) ought to be scaled */
+int scale(struct Connection *conn, int maxheight)
+{
+    int len = 0;
+    int scale = 1;
+    int orig_scale = 1;
+    int rows = conn->hist->rows;
+
+    len = digits(conn->hist->rows);
+
+    if (len == 0 || len == 1) return 1;
+
+    scale = orig_scale = pow(10, (len-2));
+
+    while ((rows / scale) > maxheight) {
+	scale = scale + orig_scale;
+    }
+
+    return scale;
+}
+
+
+// Set the cursor struct and move cursor
+void mvset(struct Cursor *curs, int y, int x)
+{
+    curs->y = curs->y + y; 
+    curs->x = curs->x + x;
+    
+    move(curs->y, curs->x);
+}
+
+
+
+
+// Print a diamond at a given y, x coordinate
 void print_at_coor(int y, int start, struct Connection *conn, struct Cursor *curs)
 {
     int x = 0;
@@ -132,6 +150,8 @@ void print_at_coor(int y, int start, struct Connection *conn, struct Cursor *cur
     }
 
     else {
+	/* Figure out where to start printing the y-axis indices.
+	   to ensure a straight y-axis. */
 	int nstart = digits(y);
 
 	mvset(curs, 1, (start - nstart));
@@ -154,8 +174,8 @@ void print_at_coor(int y, int start, struct Connection *conn, struct Cursor *cur
 	
 void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs)
 {
-    int y = conn->hist->rows;
     conn->hist->scale = scale(conn, MAXHEIGHT);   
+    int y = (conn->hist->rows / conn->hist->scale) * conn->hist->scale;
     int space = conn->hist->lspace = digits(y);
 
 
@@ -181,7 +201,6 @@ void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs
 
     printw(" X");
 
-    //mvset(curs, 1, 0);
     curs->x = 0;
 
     mvset(curs, 1, space + 2);
@@ -194,6 +213,7 @@ void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs
 }
 
 
+// Used to move the cursor around the graph using the arrow keys.
 void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 {
     switch(dir)
@@ -227,7 +247,7 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 			}
     }
 
-    mvprintw(30, 5, "[%d, %d]", curs->y, curs->x);
+    mvprintw(40, 5, "[%d, %d]", curs->y, curs->x);
     move(curs->y, curs->x);
     refresh();
 }
@@ -240,20 +260,24 @@ main(int argc, char *argv[])
 	exit(1);
     }
 
+    // Build the connection b/n file and histogram struct
     struct Connection *conn = malloc(sizeof(struct Connection));
     conn->hist = malloc(sizeof(struct Histogram));
     conn->hist->rows = 0;
     conn->hist->cols = 0;
 
+    // Initialize wlen[] to all 0's.
     int y;
     for (y = 0; y < MAX; ++y) {
 	conn->hist->wlen[y] = 0;
     }
 
+    /* Open and read the text file given
+       as an argument into the histogram struct. */
     File_open(argv[1], conn);
-     
     File_read(conn);
 
+    // Start the curses screen
     initscr();
     keypad(stdscr, TRUE);
     raw();
@@ -263,14 +287,20 @@ main(int argc, char *argv[])
     curs->y = 0;
     curs->x = 0;
 
+    // Print the filename above the histogram.
     mvprintw(0, 0, "%s", argv[1]);
 
+    // Print the histogram.
     Histogram_print(conn, MAXHEIGHT, curs);
 
+    // Allow user to move cursor around the graph.
     int dir;
-    while ((dir = getch()) != KEY_F(1)) {
+    while ((dir = getch()) != 'q') {
         curs_seek(curs, conn, dir);
     }
+
+    /* Once the user presses 'q', close the curses
+       windows and free all structs. */
     endwin();
 
     if(conn) {
@@ -278,6 +308,8 @@ main(int argc, char *argv[])
         if(conn->hist) free(conn->hist);
         free(conn); 
     }
+
+    if(curs) free(curs);
 
     return 0;
 }

@@ -246,7 +246,7 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 
     mvprintw(35,
 	     conn->hist->lspace,
-	     "%d, %d",
+	     "%d, %d ",
 	     roundto(conn->hist->rows - (conn->hist->scale * (curs->y - 3)), conn->hist->scale),
 	     (curs->x - (conn->hist->lspace-2)) / 3
 	    );

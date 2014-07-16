@@ -6,7 +6,7 @@ CXX = gcc
 
 all: $(PROG)
 
-%.o: %.c %.h
+%.o: src/%.c src/%.h
 	$(CXX) $(CFLAGS) -g -c $<
 
 $(PROG): $(OBJS)
@@ -14,3 +14,4 @@ $(PROG): $(OBJS)
 
 clean:
 	if [ -f hist ]; then rm hist; fi
+	rm *.o

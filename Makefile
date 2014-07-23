@@ -1,4 +1,4 @@
-CFLAGS = -Wall -pedantic
+CFLAGS = -std=c99 -Wall -pedantic -D_XOPEN_SOURCE=700
 LFLAGS = -lm -lncurses
 OBJS = roundto.o main.o
 PROG = hist

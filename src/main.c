@@ -16,13 +16,14 @@ struct Histogram {
     int wlen[MAX];
     int scale;
 
-    //Number of digits to the left of the Y-axis
+    // Number of digits to the left of the Y-axis
     int lspace;  
 };
 
 
 struct Connection {
     FILE *file;
+    char *stream;
     struct Histogram *hist;
 };
 
@@ -49,8 +50,20 @@ void die(char *message, struct Connection *conn)
 
 void File_open(char *filename, struct Connection *conn)
 {
-    if (!(conn->file = fopen(filename, "r"))) {
-	die("Can't open file.\n", conn);
+    if (access(filename, F_OK) != -1) {
+
+	// File exists, try to open it.
+        if (!(conn->file = fopen(filename, "r"))) {
+	    die("Can't open file.\n", conn);
+        }
+    }
+
+    else {
+
+	//Treat it as a stream.
+        if (!(conn->file = fmemopen(filename, strlen(filename), "r"))) {
+	    die("Can't read stream.\n", conn);
+        }
     }
 }
 
@@ -60,27 +73,30 @@ void File_read(struct Connection *conn)
     char c;
     int wc = 0;
 
-    while ((c = getc(conn->file)) != EOF) {
+    if (conn->file) {
 
-	// Only count letters, no numbers, punctuation, etc.
-	if (isalpha(c)) {
-		++wc;
-	}
+	while ((c = getc(conn->file)) != EOF) {
 
-	else { 
-	    if (wc > 0) {
-	        ++conn->hist->wlen[wc];
-
-	        if (wc > conn->hist->cols) {
-		    conn->hist->cols = wc;
-	        }
-	        if (conn->hist->wlen[wc] > conn->hist->rows) {
-		    conn->hist->rows = conn->hist->wlen[wc];
-	        }
-
-	        wc = 0;
+	    // Only count letters, no numbers, punctuation, etc.
+	    if (isalpha(c)) {
+		    ++wc;
 	    }
-        }
+
+	    else { 
+		if (wc > 0) {
+		    ++conn->hist->wlen[wc];
+
+		    if (wc > conn->hist->cols) {
+			conn->hist->cols = wc;
+		    }
+		    if (conn->hist->wlen[wc] > conn->hist->rows) {
+			conn->hist->rows = conn->hist->wlen[wc];
+		    }
+
+		    wc = 0;
+		}
+	    }
+	}
     }
 }
 
@@ -171,7 +187,6 @@ void print_at_coor(int y, int start, struct Connection *conn, struct Cursor *cur
 void Histogram_print(struct Connection *conn, int maxheight, struct Cursor *curs)
 {
     conn->hist->scale = scale(conn, MAXHEIGHT);   
-    //int y = (conn->hist->rows / conn->hist->scale) * conn->hist->scale;
     int y = roundto(conn->hist->rows, conn->hist->scale);
     int space = conn->hist->lspace = digits(y);
 
@@ -244,7 +259,7 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 			}
     }
 
-    mvprintw(35,
+    mvprintw((conn->hist->rows / conn->hist->scale) + 9,
 	     conn->hist->lspace,
 	     "%d, %d ",
 	     roundto(conn->hist->rows - (conn->hist->scale * (curs->y - 3)), conn->hist->scale),
@@ -255,7 +270,7 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 }
 
 
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     if (argc != 2) {
 	printf("USAGE: hist [file]\n");
@@ -290,7 +305,11 @@ main(int argc, char *argv[])
     curs->x = 0;
 
     // Print the filename above the histogram.
-    mvprintw(0, 0, "%s", argv[1]);
+    char title[strlen(argv[1])];
+
+    strncpy(title, argv[1], 20);
+    title[20] = 0;
+    mvprintw(0, 0, "%s", title);
 
     // Print the key
     mvprintw(2, (conn->hist->cols*3)+11, "-- KEY --");

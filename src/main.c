@@ -305,11 +305,11 @@ int main(int argc, char *argv[])
     curs->x = 0;
 
     // Print the filename above the histogram.
-    char title[strlen(argv[1])];
+    //char title[strlen(argv[1])];
 
-    strncpy(title, argv[1], 20);
-    title[20] = 0;
-    mvprintw(0, 0, "%s", title);
+    // strncpy(title, argv[1], 20);
+    // title[20] = 0;
+    // mvprintw(0, 0, "%s", title);
 
     // Print the key
     mvprintw(2, (conn->hist->cols*3)+11, "-- KEY --");

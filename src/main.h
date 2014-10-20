@@ -10,3 +10,4 @@
 
 #define MAX 100
 #define MAXHEIGHT 30
+#define LINESIZE 128

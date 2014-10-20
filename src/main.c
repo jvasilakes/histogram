@@ -7,6 +7,7 @@
 *******************************************/
 
 #include "main.h"
+#define LINESIZE 128
 
 
 
@@ -68,7 +69,7 @@ void File_open(char *filename, struct Connection *conn)
 }
 
 
-void File_read(struct Connection *conn)
+void Getlettercounts(struct Connection *conn)
 {
     char c;
     int wc = 0;
@@ -98,6 +99,14 @@ void File_read(struct Connection *conn)
 	    }
 	}
     }
+}
+
+
+void Getwordcounts(struct Connection *conn)
+{
+    char line[LINESIZE];
+
+    //while (fgets(line, sizeof(line), conn->file)) { 
 }
 
 
@@ -244,7 +253,9 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 	 		    break;
 			}
 
-        case KEY_LEFT:  if (curs->x == (conn->hist->lspace - 1)) break;	
+        case KEY_LEFT:  if (curs->x == (conn->hist->lspace - 1)) {
+				break;	
+			}
 			else {
 			    mvset(curs, 0, -1);
 			    break;
@@ -259,12 +270,15 @@ void curs_seek(struct Cursor *curs, struct Connection *conn, int dir)
 			}
     }
 
+    // mvprintw(y, x, message)
     mvprintw((conn->hist->rows / conn->hist->scale) + 9,
 	     conn->hist->lspace,
 	     "%d, %d ",
+	     //Get correct y, x values in the graph.
 	     roundto(conn->hist->rows - (conn->hist->scale * (curs->y - 3)), conn->hist->scale),
 	     (curs->x - (conn->hist->lspace-2)) / 3
 	    );
+
     move(curs->y, curs->x);
     refresh();
 }
@@ -292,7 +306,7 @@ int main(int argc, char *argv[])
     /* Open and read the text file given
        as an argument into the histogram struct. */
     File_open(argv[1], conn);
-    File_read(conn);
+    Getlettercounts(conn);
 
     // Start the curses screen
     initscr();
@@ -305,16 +319,17 @@ int main(int argc, char *argv[])
     curs->x = 0;
 
     // Print the filename above the histogram.
-    //char title[strlen(argv[1])];
+    char title[strlen(argv[1])];
 
-    // strncpy(title, argv[1], 20);
-    // title[20] = 0;
-    // mvprintw(0, 0, "%s", title);
+    strncpy(title, argv[1], 20);
+    title[20] = 0;
+    mvprintw(0, 0, "%s", title);
 
     // Print the key
     mvprintw(2, (conn->hist->cols*3)+11, "-- KEY --");
     mvprintw(4, (conn->hist->cols*3)+7, "X: Length in characters");
     mvprintw(5, (conn->hist->cols*3)+7, "Y: Number of occurrences");
+    mvprintw(7, (conn->hist->cols*3)+7, "'q' to quit");
 
     // Print the histogram.
     Histogram_print(conn, MAXHEIGHT, curs);
